@@ -1,7 +1,7 @@
 package json.encoder
 
 import json._
-import shapeless.the
+import shapeless.{Lazy, the}
 
 import scala.language.implicitConversions
 
@@ -22,12 +22,13 @@ trait LowPriorityToJsonImplicits {
   implicit val boolToJson: ToJson[Boolean] = (bool: Boolean) =>
     JsonBoolean(bool)
 
-  implicit def optionToJson[T: ToJson]: ToJson[Option[T]] = {
-    case Some(value) => the[ToJson[T]].encode(value)
+  implicit def optionToJson[T](implicit toJson: Lazy[ToJson[T]]): ToJson[Option[T]] = {
+    case Some(value) => toJson.value.encode(value)
     case None        => JsonNull
   }
-  implicit def listToJson[T: ToJson]: ToJson[List[T]] =
-    (value: List[T]) => JsonArray(value.map(v => the[ToJson[T]].encode(v)).toVector)
+
+  implicit def listToJson[T](implicit toJson: Lazy[ToJson[T]]): ToJson[List[T]] =
+    (value: List[T]) => JsonArray(value.map(v => toJson.value.encode(v)).toVector)
 }
 
 object ToJson extends LowPriorityToJsonImplicits {
