@@ -9,17 +9,6 @@ trait ToJsonObject[-T] extends ToJson[T] {
 }
 
 trait LowPriorityLabelledGenericToJson extends LowPriorityToJsonImplicits {
-
-  @inline
-  implicit def encodeAsLabelledGeneric[X : HasProductGeneric, H <: HList](
-                                                                           implicit gen: LabelledGeneric.Aux[X, H],
-                                                                           encoder: ToJsonObject[H]): ToJsonObject[X] =
-    (value: X) => encoder.encode(gen.to(value))
-
-}
-
-trait MidPriorityLabelledGenericToJson extends LowPriorityLabelledGenericToJson {
-
   implicit val encodeObjectHNil: ToJsonObject[HNil] = (_: HNil) =>
     JsonObject(Map.empty)
 
@@ -36,6 +25,15 @@ trait MidPriorityLabelledGenericToJson extends LowPriorityLabelledGenericToJson 
       JsonObject(encodedTail.value + (encodedHeadKey -> encodedHeadValue))
     }
 
+}
+
+trait MidPriorityLabelledGenericToJson extends LowPriorityLabelledGenericToJson {
+
+  @inline
+  implicit def encodeAsLabelledGeneric[X : HasProductGeneric, H <: HList](
+                                                                           implicit gen: LabelledGeneric.Aux[X, H],
+                                                                           encoder: ToJsonObject[H]): ToJsonObject[X] =
+    (value: X) => encoder.encode(gen.to(value))
 }
 
 object ToJsonObject extends MidPriorityLabelledGenericToJson {
