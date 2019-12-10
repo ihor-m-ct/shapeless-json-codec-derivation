@@ -1,7 +1,8 @@
 package json.encoder
 
 import json._
-import shapeless.{Lazy, the}
+import shapeless.labelled.FieldType
+import shapeless.{::, HList, HNil, HasProductGeneric, LabelledGeneric, Lazy, Witness, the}
 
 import scala.language.implicitConversions
 
@@ -31,6 +32,37 @@ trait LowPriorityToJsonImplicits {
     (value: List[T]) => JsonArray(value.map(v => toJson.value.encode(v)).toVector)
 }
 
-object ToJson extends LowPriorityToJsonImplicits {
+trait MediumPriorityLabelledGenericToJson extends LowPriorityToJsonImplicits {
+  implicit val encodeObjectHNil: ToJson[HNil] = (_: HNil) =>
+    JsonObject(Map.empty)
+
+  @inline
+  implicit def encodeObjectHCons[HK <: Symbol, HV, T <: HList](
+                                                                implicit headEncoder: Lazy[ToJson[HV]],
+                                                                tailEncoder: ToJson[T],
+                                                                headKey: Witness.Aux[HK]
+                                                              ): ToJson[FieldType[HK, HV] :: T] =
+    (value: FieldType[HK, HV] :: T) => {
+      val encodedHeadKey = headKey.value.name
+      val encodedHeadValue = headEncoder.value.encode(value.head)
+      val encodedTail = tailEncoder.encode(value.tail)
+      val values: Map[String, Json] =
+        encodedTail match {
+          case JsonObject(values) => values
+          case _ => Map.empty
+        }
+
+      JsonObject(values + (encodedHeadKey -> encodedHeadValue))
+
+    }
+}
+
+object ToJson extends MediumPriorityLabelledGenericToJson {
+
+  implicit def encodeAsLabelledGeneric[X : HasProductGeneric, H <: HList](
+                                                                           implicit labelledGeneric: LabelledGeneric.Aux[X, H],
+                                                                           productEncoder: ToJson[H]): ToJson[X] =
+    (value: X) => productEncoder.encode(labelledGeneric.to(value))
+
   def encode[T: ToJson](value: T): Json = the[ToJson[T]].encode(value)
 }
