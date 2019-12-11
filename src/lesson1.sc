@@ -1,6 +1,8 @@
 // -- Page 3 --
-import shapeless._
+import shapeless.{nat, _}
 import shapeless.labelled.FieldType
+import shapeless.ops.nat.LT
+
 import scala.language.implicitConversions
 
 val normalList = 1 :: "SomeString" :: true :: Nil
@@ -39,11 +41,15 @@ object encoders {
     implicit val intToJson: ToJson[Int] = (value: Int) => JsonNumber(BigDecimal(value))
     implicit val doubleToJson: ToJson[Double] = (value: Double) => JsonNumber(BigDecimal(value))
     implicit val boolToJson: ToJson[Boolean] = (bool: Boolean) => JsonBoolean(bool)
+
+
     implicit def optionToJson[T : ToJson](opt: Option[T]): ToJson[Option[T]] = {
       case Some(value) => the[ToJson[T]].encode(value)
       case None => JsonNull
     }
-    implicit val listToJson: ToJson[List[Json]] = (list: List[Json]) => JsonArray(Vector(list:_*))
+
+    implicit def listToJson[T : ToJson]: ToJson[List[T]] =
+      (list: List[T]) => JsonArray(list.map(value => the[ToJson[T]].encode(value)).toVector)
   }
 
   object ToJson extends LowPriorityToJsonImplicits
@@ -141,6 +147,9 @@ object MyDependantType {
 
 // -- Page 12 --
 
+val l = 'hello
+val l1 = Symbol("hello")
+
 trait ToJsonObject[T] extends ToJson[T] {
   def encode(value: T): JsonObject
 }
@@ -170,4 +179,24 @@ def encodeLabelledGeneric[X, H <: HList](value: X)
 
 import LabelledGenericToJson._
 
-encodeLabelledGeneric(example1)
+//encodeLabelledGeneric(example1)
+
+import shapeless.ops.nat._
+import shapeless.nat._
+
+val threeElements = Sized(1,2,3)
+val oneElement = Sized(1)
+val fourElements = Sized(5,6,7,8)
+
+def sumFirstAndSecond[L <: Nat](sized: Sized[IndexedSeq[Int], L])
+                               (implicit diff1: Diff[L, Succ[_0]],
+                                diff2: Diff[L, Succ[_1]]): Int = {
+  sized.at[_0] + sized.at[_1]
+}
+
+val literal: 42 = 42
+
+
+sumFirstAndSecond(threeElements)
+sumFirstAndSecond(oneElement)
+sumFirstAndSecond(fourElements)
